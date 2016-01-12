@@ -307,52 +307,53 @@
                     (?<  . "w")
                     (?>  . "w")
                     (?/  . "w")
+                    (?.  . "_")
+                    (?{  . "(")
+                    (?}  . ")")
                     ;; comment delimiters
-                    (?\\ . ". 124b")
-                    (?*  . ". 23")
-                    (?\n . "> b")))
+                    (?\\ . ". 124")
+                    (?*  . ". 23b")
+                    (?\n . ">")))
       (modify-syntax-entry (car pair) (cdr pair) table))
     table)
   "Syntax table to use in shen-mode.")
 
-
-;;; Indentation
-;; Copied from qi-mode, which in turn is from scheme-mode and from lisp-mode
+
+
+;;Indentation
+;;Copied from qi-mode, which in turn is from scheme-mode and from lisp-mode
 (defun shen-indent-function (indent-point state)
   (let ((normal-indent (current-column)))
     (goto-char (1+ (elt state 1)))
     (parse-partial-sexp (point) calculate-lisp-indent-last-sexp 0 t)
     (if (and (elt state 2)
              (not (looking-at "\\sw\\|\\s_")))
-      ;; car of form doesn't seem to be a symbol
-      (progn
-        (if (not (> (save-excursion (forward-line 1) (point))
-                    calculate-lisp-indent-last-sexp))
-          (progn (goto-char calculate-lisp-indent-last-sexp)
-                 (beginning-of-line)
-                 (parse-partial-sexp (point)
-                                     calculate-lisp-indent-last-sexp 0 t)))
-        ;; Indent under the list or under the first sexp on the same
-        ;; line as calculate-lisp-indent-last-sexp.  Note that first
-        ;; thing on that line has to be complete sexp since we are
-        ;; inside the innermost containing sexp.
-        (backward-prefix-chars)
-        (current-column))
+        ;; car of form doesn't seem to be a symbol
+        (progn
+          ;; butchered the original code to interact better with shen
+          ;; multiline type signatues
+          (backward-prefix-chars)
+          (buffer-substring (point)
+                            (progn (forward-sexp 1) (point)))
+          (1+ (current-column)))
+
       (let ((function (buffer-substring (point)
-					(progn (forward-sexp 1) (point))))
-	    method)
-	(setq method (or (get (intern-soft function) 'shen-indent-function)
-			 (get (intern-soft function) 'shen-indent-hook)))
-	(cond ((or (eq method 'defun)
-		   (and (null method)
-			(> (length function) 3)
-			(string-match "\\`def" function)))
-	       (lisp-indent-defform state indent-point))
-	      ((integerp method)
-	       (lisp-indent-specform method state
-				     indent-point normal-indent))
-	      (method
+                                        (progn (forward-sexp 1) (point))))
+            method)
+        (setq method (or (get (intern-soft function) 'shen-indent-function)
+                         (get (intern-soft function) 'shen-indent-hook)))
+        (cond ((or (eq method 'defun)
+                   (and (null method)
+                        (> (length function) 3)
+                        (string-match "\\`def" function)))
+               (lisp-indent-defform state indent-point))
+              ((integerp method)
+               (lisp-indent-specform method state
+                                     indent-point normal-indent))
+              (method
                (funcall method state indent-point normal-indent)))))))
+
+
 
 (defun shen-let-indent (state indent-point normal-indent)
   (let ((edge (- (current-column) 2)))
@@ -364,14 +365,18 @@
       edge)))
 
 (defun shen-package-indent (state indent-point normal-indent)
-  (- (current-column) 8))
+  (- (current-column) 7))
+
+(defun shen-module-indent (state indent-point normal-indent)
+  (- (current-column) 6))
 
 (put 'let 'shen-indent-function 'shen-let-indent)
 (put 'lambda 'shen-indent-function 1)
 (put 'package 'shen-indent-function 'shen-package-indent)
+(put 'module  'shen-indent-function 'shen-module-indent)
 (put 'datatype 'shen-indent-function 1)
 
-
+
 ;;; Function documentation
 (defun shen-current-function ()
   (ignore-errors
@@ -392,13 +397,12 @@
 (defvar shen-imenu-generic-expression
   '(("Functions" "^\\s-*(\\(define\\)" 1)))
 
-
+
 ;;; Major mode definition
 ;; apparently some versions of Emacs don't have `prog-mode' defined
 (unless (fboundp 'prog-mode)
   (defalias 'prog-mode 'fundamental-mode))
 
-;;;###autoload
 (define-derived-mode shen-mode prog-mode "shen"
   "Major mode for editing Shen code."
   :syntax-table shen-mode-syntax-table
@@ -424,7 +428,6 @@
      (mode-name . "Shen")
      (font-lock-defaults . (shen-font-lock-keywords)))))
 
-;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.shen\\'" . shen-mode))
 
 (provide 'shen-mode)

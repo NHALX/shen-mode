@@ -1,32 +1,30 @@
 ;;; inferior-shen-mode --- an inferior-shen mode
 
-;; Copyright (C) 2007 Michael Ilseman
-;; Copyright (C) 2011 Eric Schulte
+;; Copyright (C) 2011 Free Software Foundation, Inc.
 
-;; Author: Michael Ilseman, Eric Schulte
-;; Keywords: processes, shen
+;; Authors: Michael Ilseman, Eric Schulte <schulte.eric@gmail.com>
+;; Version: 0.1
+;; Keywords: languages, shen, comint
+;; Description: A major mode for editing shen source code
+
+;; This file is part of GNU Emacs.
+
+;; GNU Emacs is free software: you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; GNU Emacs is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 
-;; A direct search-replace of inf-qi.
-
-;; Mostly taken from inf-lisp.el. Pretty much a copy/paste,
-;; search/replace with syntax highlighting added.
-
-;; This file defines a shen-in-a-buffer package (inferior-shen mode)
-;; built on top of comint mode.  
-
-;; Since this mode is built on top of the general command-interpreter-in-
-;; a-buffer mode (comint mode), it shares a common base functionality,
-;; and a common set of bindings, with all modes derived from comint mode.
-;; This makes these modes easier to use.
-
-;; For documentation on the functionality provided by comint mode, and
-;; the hooks available for customising it, see the file comint.el.
-;; For further information on inferior-shen mode, see the comments below.
-
-(eval-when-compile
-  (require 'cl))
+;; This file defines an inferior Shen mode.
 
 ;;; Code:
 (require 'comint)

@@ -1,15 +1,6 @@
-An Emacs major mode for shen.
+Shen-mode provides functionality for working with the shen programming
+language.  This includes both a major mode `shen-mode' and an inferior
+Shen mode (`run-shen') for evaluating shen code in a comint buffer or
+from a buffer of Shen source code.
 
-For more information on shen see
-  http://www.shenlanguage.org
-
-To use put something like the following in your .emacs
-    (require 'shen-mode)
-    (require 'inf-shen) ; <- for interaction with an external shen process
-
-Shen-mode.el is now included in the GNU ELPA http://elpa.gnu.org/ and
-may be installed in new versions of Emacs using M-x list-packages.
-
-Inf-shen.el is not yet in the GNU ELPA (pending FSF copyright
-paperwork), until such time as it is incorporated into ELPA
-inf-shen.el may be obtained from this git repository.
+For information on shen see http://www.shenlanguage.org/.
