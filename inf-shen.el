@@ -31,6 +31,15 @@
 (require 'shen-mode)
 
 ;;;###autoload
+(defvar inferior-shen-folder (file-name-directory
+                              (or load-file-name buffer-file-name)))
+
+(defvar inferior-shen-support-code
+  (format "(tc +)\n(load \"%s%s\")\n(tc -)\n"
+          inferior-shen-folder
+          "support.shen"))
+
+
 (defvar inferior-shen-filter-regexp "\\`\\s *\\(:\\(\\w\\|\\s_\\)\\)?\\s *\\'"
   "*What not to save on inferior Shen's input history.
 Input matching this regexp is not saved on the input history in Inferior Shen
@@ -46,6 +55,9 @@ mode.  Default is whitespace followed by 0 or 1 single-letter colon-keyword
   (define-key inferior-shen-mode-map "\C-c\C-k" 'shen-compile-file)
   (define-key inferior-shen-mode-map "\C-c\C-a" 'shen-show-arglist)
   (define-key inferior-shen-mode-map "\C-c\C-d" 'shen-describe-sym)
+  (define-key inferior-shen-mode-map "\C-c\C-t" 'shen-toggle-typecheck)
+  (define-key inferior-shen-mode-map "\C-c\C-s" 'shen-toggle-spy)
+  (define-key inferior-shen-mode-map "\C-c\M-s" 'shen-toggle-step)
   (define-key inferior-shen-mode-map "\C-c\C-f"
     'shen-show-function-documentation)
   (define-key inferior-shen-mode-map "\C-c\C-v"
@@ -63,6 +75,14 @@ mode.  Default is whitespace followed by 0 or 1 single-letter colon-keyword
 (define-key shen-mode-map "\C-c\C-k" 'shen-compile-file)  ; "kompile" file
 (define-key shen-mode-map "\C-c\C-a" 'shen-show-arglist)
 (define-key shen-mode-map "\C-c\C-d" 'shen-describe-sym)
+(define-key shen-mode-map "\C-c\C-t" 'shen-toggle-typecheck)
+(define-key shen-mode-map "\C-c\C-s" 'shen-toggle-spy)
+(define-key shen-mode-map "\C-c\M-s" 'shen-toggle-step)
+(define-key shen-mode-map (kbd "C-=") 'shen-step)
+(define-key shen-mode-map (kbd "C--") 'shen-abort-input)
+(define-key shen-mode-map (kbd "C-c C-<backspace>") 'shen-delete-function)
+(define-key shen-mode-map "\C-c\C-p" 'shen-delete-type)
+(define-key shen-mode-map "\C-c\M-p" 'shen-delete-type-all-but)
 (define-key shen-mode-map "\C-c\C-f" 'shen-show-function-documentation)
 (define-key shen-mode-map "\C-c\C-v" 'shen-show-variable-documentation)
 
@@ -246,13 +266,17 @@ of `inferior-shen-program').  Runs the hooks from
   (interactive (list (if current-prefix-arg
 			 (read-string "Run shen: " inferior-shen-program)
 		       inferior-shen-program)))
+  (file-name-directory
+   (or load-file-name buffer-file-name))
+
   (if (not (comint-check-proc "*inferior-shen*"))
       (let ((cmdlist (split-string cmd)))
 	(set-buffer (apply (function make-comint)
 			   "inferior-shen" (car cmdlist) nil (cdr cmdlist)))
 	(inferior-shen-mode)))
   (setq inferior-shen-buffer "*inferior-shen*")
-  (pop-to-buffer "*inferior-shen*"))
+  (comint-send-string inferior-shen-buffer inferior-shen-support-code)
+  (pop-to-buffer "*inferior-shen*" 'display-buffer-in-previous-window))
 ;;;###autoload (add-hook 'same-window-buffer-names "*inferior-shen*")
 
 ;;;###autoload
@@ -266,7 +290,7 @@ containing the shen source code about to be evaluated.")
 (defun shen-remember-functions (start end)
   "Add functions defined between START and END to `shen-functions'."
   (interactive "r")
-  (flet ((clean (text)
+  (cl-flet ((clean (text)
                 (when text
                   (set-text-properties 0 (length text) nil text) text)))
     (save-excursion
@@ -305,7 +329,7 @@ Prefix argument means switch to the Shen buffer afterwards."
   (interactive "r\nP")
   (let ((before-input (marker-position (process-mark (inferior-shen-proc))))
         result)
-    
+
     (run-hook-with-args 'shen-pre-eval-hook start end)
     (comint-send-region (inferior-shen-proc) start end)
     (comint-send-string (inferior-shen-proc) "\n")
@@ -463,7 +487,8 @@ Used by these commands to determine defaults.")
 				     (file-name-nondirectory file-name)))
   (comint-send-string (inferior-shen-proc)
 		      (format inferior-shen-load-command file-name))
-  (switch-to-shen t))
+  \\(switch-to-shen t)
+  )
 
 
 (defun shen-compile-file (file-name)
@@ -544,12 +569,11 @@ The value is nil if it can't find one."
 (defun shen-var-at-pt ()
   (condition-case ()
       (save-excursion
-	(forward-sexp -1)
-	(skip-chars-forward "'")
-	(let ((obj (read (current-buffer))))
-	  (and (symbolp obj) obj)))
+        (forward-sexp -1)
+        (skip-chars-forward "'")
+        (let ((obj (read (current-buffer))))
+          (and (symbolp obj) obj)))
     (error nil)))
-
 
 ;;; Documentation functions: fn and var doc, arglist, and symbol describe.
 ;;; ======================================================================
@@ -578,6 +602,68 @@ See variable `shen-describe-sym-command'."
   (interactive (shen-symprompt "Describe" (shen-var-at-pt)))
   (comint-proc-query (inferior-shen-proc)
 		     (format shen-describe-sym-command sym)))
+
+(defun shen-toggle-typecheck ()
+  "Toggle typechecking."
+  (interactive)
+  (comint-send-string (inferior-shen-proc)
+                      "(emacs-shen.toggle-tc _)\n"))
+
+(defun shen-toggle-spy ()
+  "Toggle spy."
+  (interactive)
+  (comint-send-string (inferior-shen-proc)
+                      "(emacs-shen.toggle-spy _)\n"))
+
+(defun shen-toggle-step ()
+  "Toggle step."
+  (interactive)
+  (comint-send-string (inferior-shen-proc)
+                      "(emacs-shen.toggle-step _)\n"))
+
+(defun backward-sexp-second-word ()
+  (save-excursion
+    (backward-sexp)
+    (forward-word)
+    (skip-chars-forward " ")
+    (let ((start (point))
+          (end   (progn
+                   (forward-word)
+                   (point))))
+      (buffer-substring start end))))
+
+(defun shen-delete-function ()
+  "Delete named type theory block."
+  (interactive)
+  (comint-send-string (inferior-shen-proc)
+                      (format "(emacs-shen.delete-function %s)\n"
+                              (backward-sexp-second-word))))
+
+(defun delete-type (invert)
+  (format "(emacs-shen.delete-type-theory %s %s)\n"
+          (if invert "true" "false")
+          (backward-sexp-second-word)))
+
+(defun shen-delete-type ()
+  "Delete named type theory block."
+  (interactive)
+  (comint-send-string (inferior-shen-proc) (delete-type nil)))
+
+
+(defun shen-delete-type-all-but ()
+  "Delete all type theories except named and emacs-shen.sequent-rules."
+  (interactive)
+  (comint-send-string (inferior-shen-proc) (delete-type t)))
+
+(defun shen-step ()
+  "Send newline to shen process."
+  (interactive)
+  (comint-send-string (inferior-shen-proc) "\n"))
+
+(defun shen-abort-input ()
+  "Send ^ to shen process."
+  (interactive)
+  (comint-send-string (inferior-shen-proc) "^\n"))
 
 
 ;;  "Returns the current inferior Shen process.
