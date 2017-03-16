@@ -35,9 +35,11 @@
                               (or load-file-name buffer-file-name)))
 
 (defvar inferior-shen-support-code
-  (format "(tc +)\n(load \"%s%s\")\n(tc -)\n"
+  (format "(tc +)\n(load \"%s%s\")\n(tc -)\n(load \"%s%s\")\n"
           inferior-shen-folder
-          "support.shen"))
+          "support.shen"
+          inferior-shen-folder
+          "init.shen"))
 
 
 (defvar inferior-shen-filter-regexp "\\`\\s *\\(:\\(\\w\\|\\s_\\)\\)?\\s *\\'"
@@ -613,7 +615,7 @@ See variable `shen-describe-sym-command'."
   "Toggle spy."
   (interactive)
   (comint-send-string (inferior-shen-proc)
-                      "(emacs-shen.toggle-spy _)\n"))
+                      "(emacs-shen.toggle-spy _)\n\n\n\n"))
 
 (defun shen-toggle-step ()
   "Toggle step."
