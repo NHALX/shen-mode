@@ -34,8 +34,13 @@
 (defvar inferior-shen-folder (file-name-directory
                               (or load-file-name buffer-file-name)))
 
-(defvar inferior-shen-support-code
-  (format "(tc +)\n(load \"%s%s\")\n(tc -)\n(load \"%s%s\")\n"
+(defun inferior-shen-buffer-folder ()
+  (let ((FILE (buffer-file-name (car (buffer-list)))))
+    (if FILE (file-name-directory FILE) "")))
+
+(defun inferior-shen-support-code ()
+  (format "(set emacs-shen.*buffer-folder* \"%s\")(tc +)\n(load \"%s%s\")\n(tc -)\n(load \"%s%s\")\n"
+          (inferior-shen-buffer-folder)
           inferior-shen-folder
           "support.shen"
           inferior-shen-folder
@@ -277,7 +282,7 @@ of `inferior-shen-program').  Runs the hooks from
 			   "inferior-shen" (car cmdlist) nil (cdr cmdlist)))
 	(inferior-shen-mode)))
   (setq inferior-shen-buffer "*inferior-shen*")
-  (comint-send-string inferior-shen-buffer inferior-shen-support-code)
+  (comint-send-string inferior-shen-buffer (inferior-shen-support-code))
   (pop-to-buffer "*inferior-shen*" 'display-buffer-in-previous-window))
 ;;;###autoload (add-hook 'same-window-buffer-names "*inferior-shen*")
 
