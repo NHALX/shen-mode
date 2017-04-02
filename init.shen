@@ -29,6 +29,8 @@
           X))))
 
 
+(set *maximum-print-sequence-size* 1000)
+
 (if (= "Shen 19.2" (value *version*))
     (emacs-shen.init/shen-free)
     (emacs-shen.init/shen-pro))

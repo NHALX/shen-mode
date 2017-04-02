@@ -369,7 +369,12 @@ Prefix argument means switch to the Shen buffer afterwards."
   "Send the previous sexp to the inferior Shen process.
 Prefix argument means switch to the Shen buffer afterwards."
   (interactive "P")
-  (shen-eval-region (save-excursion (backward-sexp) (point)) (point) and-go))
+  (progn
+    (shen-eval-region (save-excursion (backward-sexp) (point)) (point) and-go)
+    (with-current-buffer inferior-shen-buffer
+      (end-of-buffer)
+      (cl-dolist (window (get-buffer-window-list nil nil t))
+        (set-window-point window (point))))))
 
 ;;; Common Shen COMPILE sux.
 (defun shen-compile-region (start end &optional and-go)

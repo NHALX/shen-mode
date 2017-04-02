@@ -327,7 +327,8 @@
     (goto-char (1+ (elt state 1)))
     (parse-partial-sexp (point) calculate-lisp-indent-last-sexp 0 t)
     (if (and (elt state 2)
-             (not (looking-at "\\sw\\|\\s_")))
+             (not (looking-at "\\sw\\|\\s_"))
+             (not (looking-back "\\[" 1)))
         ;; car of form doesn't seem to be a symbol
         (progn
           ;; butchered the original code to interact better with shen
@@ -344,7 +345,7 @@
                          (get (intern-soft function) 'shen-indent-hook)))
         (cond ((or (eq method 'defun)
                    (and (null method)
-                        (> (length function) 3)
+                        (>= (length function) 3)
                         (string-match "\\`def" function)))
                (lisp-indent-defform state indent-point))
               ((integerp method)
