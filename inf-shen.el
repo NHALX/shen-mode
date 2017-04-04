@@ -619,7 +619,7 @@ See variable `shen-describe-sym-command'."
   "Toggle typechecking."
   (interactive)
   (comint-send-string (inferior-shen-proc)
-                      "(emacs-shen.toggle-tc _)\n"))
+                      "(spy -)\n\n\n\n(emacs-shen.toggle-tc _)\n"))
 
 (defun shen-toggle-spy ()
   "Toggle spy."

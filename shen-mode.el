@@ -319,40 +319,80 @@
   "Syntax table to use in shen-mode.")
 
 
-
+;;(and
+;;             (elt state 2)
+;;             (not (looking-at "\\sw\\|\\s_\\|\\s."))
+;;             (not (looking-back "\\[" 1)))
 ;;Indentation
 ;;Copied from qi-mode, which in turn is from scheme-mode and from lisp-mode
+(defun center-line-offset ()
+  (progn
+    (save-excursion
+      (let ((lm (current-left-margin))
+	    line-length)
+	(beginning-of-line)
+	(delete-horizontal-space)
+	(end-of-line)
+	(delete-horizontal-space)
+	(setq line-length (current-column))
+	(if (> (- fill-column lm line-length) 0)
+        (+ lm (/ (- fill-column lm line-length) 2)))))
+    ))
+
+
+(defun indent-datatype (indent-point)
+  (save-excursion
+    (progn
+      (goto-char indent-point)
+      (center-line-offset))))
+
+
+(defun indent-typesig ()
+  (progn
+    (backward-prefix-chars)
+    (buffer-substring (point)
+                      (progn (forward-sexp 1) (point)))
+    (1+ (current-column))))
+
+
+(defun indent-default (indent-point state normal-indent)
+  (let ((function (buffer-substring (point)
+                                    (progn (forward-sexp 1) (point))))
+        method)
+    (setq method (or (get (intern-soft function) 'shen-indent-function)
+                     (get (intern-soft function) 'shen-indent-hook)))
+    (cond ((or (eq method 'defun)
+               (and (null method)
+                    (>= (length function) 3)
+                    (string-match "\\`def\\|\\`let" function)))
+           (lisp-indent-defform state indent-point))
+          ((integerp method)
+           (lisp-indent-specform method state
+                                 indent-point normal-indent))
+          (method
+           (funcall method state indent-point normal-indent)))))
+
+
 (defun shen-indent-function (indent-point state)
   (let ((normal-indent (current-column)))
+
     (goto-char (1+ (elt state 1)))
     (parse-partial-sexp (point) calculate-lisp-indent-last-sexp 0 t)
-    (if (and (elt state 2)
-             (not (looking-at "\\sw\\|\\s_"))
-             (not (looking-back "\\[" 1)))
-        ;; car of form doesn't seem to be a symbol
-        (progn
-          ;; butchered the original code to interact better with shen
-          ;; multiline type signatues
-          (backward-prefix-chars)
-          (buffer-substring (point)
-                            (progn (forward-sexp 1) (point)))
-          (1+ (current-column)))
 
-      (let ((function (buffer-substring (point)
-                                        (progn (forward-sexp 1) (point))))
-            method)
-        (setq method (or (get (intern-soft function) 'shen-indent-function)
-                         (get (intern-soft function) 'shen-indent-hook)))
-        (cond ((or (eq method 'defun)
-                   (and (null method)
-                        (>= (length function) 3)
-                        (string-match "\\`def" function)))
-               (lisp-indent-defform state indent-point))
-              ((integerp method)
-               (lisp-indent-specform method state
-                                     indent-point normal-indent))
-              (method
-               (funcall method state indent-point normal-indent)))))))
+    (cond
+     ((and (elt state 2)
+           (looking-at "datatype"))
+
+      (indent-datatype indent-point))
+
+     ((and (elt state 2)
+           (save-excursion
+             (back-to-indentation)
+             (looking-at "\{")))
+
+      (indent-typesig))
+
+     (t (indent-default indent-point state normal-indent)))))
 
 
 
@@ -376,6 +416,7 @@
 (put 'package 'shen-indent-function 'shen-package-indent)
 (put 'module  'shen-indent-function 'shen-module-indent)
 (put 'datatype 'shen-indent-function 1)
+
 
 
 ;;; Function documentation
