@@ -336,8 +336,7 @@
 	(delete-horizontal-space)
 	(setq line-length (current-column))
 	(if (> (- fill-column lm line-length) 0)
-        (+ lm (/ (- fill-column lm line-length) 2)))))
-    ))
+        (+ lm (/ (- fill-column lm line-length) 2)))))))
 
 
 (defun indent-datatype (indent-point)
@@ -373,13 +372,35 @@
            (funcall method state indent-point normal-indent)))))
 
 
+(defun is-clause-line-at (X)
+  (if X
+      (save-excursion
+        (goto-char X)
+        (move-beginning-of-line 1)
+        (cond
+         ((looking-at "[\s-]*->") 1)
+         ((looking-at "[\s-]*where") 2)
+         (t nil)))
+    nil))
+
+(defun indent-function-def (indent-point state normal-indent)
+  (if (is-clause-line-at indent-point)
+      (+ normal-indent 2)
+    (let ((X (is-clause-line-at (elt state 2))))
+      (if X
+          (- normal-indent (* 2 X))
+        (lisp-indent-defform state indent-point)))))
+
+
 (defun shen-indent-function (indent-point state)
   (let ((normal-indent (current-column)))
-
     (goto-char (1+ (elt state 1)))
     (parse-partial-sexp (point) calculate-lisp-indent-last-sexp 0 t)
 
     (cond
+     ((looking-at "def")
+      (indent-function-def indent-point state normal-indent))
+
      ((and (elt state 2)
            (looking-at "datatype"))
 
