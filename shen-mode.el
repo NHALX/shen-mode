@@ -412,21 +412,13 @@
     nil))
 
 
-(defun previous-clause-indent (X)
-    (save-excursion
-      (goto-char X)
-      (while (is-multiline-clause (point))
-        (previous-line))
-      (back-to-indentation)
-      (current-column)))
-
 (defun indent-function-def (indent-point state normal-indent)
-  (if (is-multiline-clause indent-point)
-      (+ normal-indent 2)
-    (let ((X (is-multiline-clause (elt state 2))))
-      (if X
-          (previous-clause-indent X)
-        (lisp-indent-defform state (elt state 1))))))
+  (let ((root (save-excursion
+                (backward-up-list)
+                (current-column))))
+    (if (is-multiline-clause indent-point)
+        (+ 4 root)
+      (+ 2 root))))
 
 
 (defun last-sexp-of-line ()
