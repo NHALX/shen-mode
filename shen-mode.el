@@ -32,6 +32,7 @@
 ;;; Code:
 (require 'lisp-mode)
 (require 'imenu)
+(require 'subr-x)
 
 (defcustom shen-mode-hook '(turn-on-eldoc-mode)
   "Normal hook run when entering `shen-mode'."
@@ -325,25 +326,51 @@
 ;;             (not (looking-back "\\[" 1)))
 ;;Indentation
 ;;Copied from qi-mode, which in turn is from scheme-mode and from lisp-mode
-(defun center-line-offset ()
+
+(setq shen-datatype-rigid-indent 4)
+
+(defun center-line-offset (longest)
   (progn
     (save-excursion
-      (let ((lm (current-left-margin))
-	    line-length)
-	(beginning-of-line)
-	(delete-horizontal-space)
-	(end-of-line)
-	(delete-horizontal-space)
-	(setq line-length (current-column))
-	(if (> (- fill-column lm line-length) 0)
-        (+ lm (/ (- fill-column lm line-length) 2)))))))
+      (beginning-of-line)
+      (delete-horizontal-space)
+      (end-of-line)
+      (delete-horizontal-space)
 
+      (let* ((line-length (current-column))
+             (pos         (- longest line-length)))
 
-(defun indent-datatype (indent-point)
+        (+ shen-datatype-rigid-indent
+           (if (> pos 0) (/ pos 2) 0))))))
+
+(defun fold-region-lines (f init start end)
   (save-excursion
-    (progn
-      (goto-char indent-point)
-      (center-line-offset))))
+    (goto-char start)
+    (let ((state init))
+      (while (< (point) end)
+        (save-excursion
+          (setq state (funcall f state)))
+        (forward-line))
+      state)))
+
+
+
+(defun trimmed-line-length ()
+    (length (string-trim (thing-at-point 'line t))))
+
+(defun region-longest-trimmed-line (begin end)
+  (fold-region-lines (lambda (X) (max X (trimmed-line-length)))
+                     0
+                     begin end))
+
+(defun indent-datatype (indent-point normal-indent)
+  (save-excursion
+    (let* ((begin   (save-excursion (backward-up-list) (point)))
+           (end     (save-excursion (up-list)          (point)))
+           (longest (region-longest-trimmed-line begin end)))
+      (progn
+        (goto-char indent-point)
+        (center-line-offset longest)))))
 
 
 (defun indent-typesig ()
@@ -363,7 +390,7 @@
     (cond ((or (eq method 'defun)
                (and (null method)
                     (>= (length function) 3)
-                    (string-match "\\`def\\|\\`let" function)))
+                    (string-match "\\`\\(def\\|let\\|u-test\\)" function)))
            (lisp-indent-defform state indent-point))
           ((integerp method)
            (lisp-indent-specform method state
@@ -372,24 +399,44 @@
            (funcall method state indent-point normal-indent)))))
 
 
-(defun is-clause-line-at (X)
+
+(defun is-multiline-clause (X)
   (if X
       (save-excursion
         (goto-char X)
         (move-beginning-of-line 1)
         (cond
-         ((looking-at "[\s-]*->") 1)
-         ((looking-at "[\s-]*where") 2)
+         ((looking-at "[\s-]*\\(->\\)")    (match-beginning 1))
+         ((looking-at "[\s-]*\\(where\\)") (match-beginning 1))
          (t nil)))
     nil))
 
+
+(defun previous-clause-indent (X)
+    (save-excursion
+      (goto-char X)
+      (while (is-multiline-clause (point))
+        (previous-line))
+      (back-to-indentation)
+      (current-column)))
+
 (defun indent-function-def (indent-point state normal-indent)
-  (if (is-clause-line-at indent-point)
+  (if (is-multiline-clause indent-point)
       (+ normal-indent 2)
-    (let ((X (is-clause-line-at (elt state 2))))
+    (let ((X (is-multiline-clause (elt state 2))))
       (if X
-          (- normal-indent (* 2 X))
-        (lisp-indent-defform state indent-point)))))
+          (previous-clause-indent X)
+        (lisp-indent-defform state (elt state 1))))))
+
+
+(defun last-sexp-of-line ()
+    (progn
+      (beginning-of-line)
+      (let ((N (line-number-at-pos)))
+        (while (and (= N (line-number-at-pos))
+                    (not (looking-at "[[:space:]]*$")))
+          (forward-sexp))
+        (backward-sexp))))
 
 
 (defun shen-indent-function (indent-point state)
@@ -404,11 +451,12 @@
      ((and (elt state 2)
            (looking-at "datatype"))
 
-      (indent-datatype indent-point))
+      (indent-datatype indent-point normal-indent))
 
      ((and (elt state 2)
            (save-excursion
-             (back-to-indentation)
+             ;(back-to-indentation)
+             (last-sexp-of-line)
              (looking-at "\{")))
 
       (indent-typesig))
@@ -416,8 +464,7 @@
      (t (indent-default indent-point state normal-indent)))))
 
 
-
-(defun shen-let-indent (state indent-point normal-indent)
+ (defun shen-let-indent (state indent-point normal-indent)
   (let ((edge (- (current-column) 2)))
     (goto-char indent-point) (skip-chars-forward " \t")
     (if (looking-at "[-a-zA-Z0-9+*/?!@$%^&_:~]")
@@ -436,6 +483,7 @@
 (put 'lambda 'shen-indent-function 1)
 (put 'package 'shen-indent-function 'shen-package-indent)
 (put 'module  'shen-indent-function 'shen-module-indent)
+(put 'template 'shen-indent-function 'shen-module-indent)
 (put 'datatype 'shen-indent-function 1)
 
 

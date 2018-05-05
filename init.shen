@@ -18,8 +18,11 @@
   -> (let
         DIR (value emacs-shen.*buffer-folder*)
       (do
-       (emacs-shen.lisp-cd DIR)
+       (emacs-shen.cd DIR)
        (cd DIR))))
+
+(define emacs-shen.cd
+  X -> unit)
 
 (define emacs-shen.lisp-cd
   X -> (lisp.eval
@@ -31,6 +34,8 @@
 
 (set *maximum-print-sequence-size* 1000)
 
+\*
 (if (= "Shen 19.2" (value *version*))
     (emacs-shen.init/shen-free)
     (emacs-shen.init/shen-pro))
+*\
