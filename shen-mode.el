@@ -464,14 +464,20 @@
      (t (indent-default indent-point state normal-indent)))))
 
 
- (defun shen-let-indent (state indent-point normal-indent)
-  (let ((edge (- (current-column) 2)))
-    (goto-char indent-point) (skip-chars-forward " \t")
-    (if (looking-at "[-a-zA-Z0-9+*/?!@$%^&_:~]")
-        ;; deeper indent because we're still defining local variables
-        (lisp-indent-specform 5 state indent-point normal-indent)
-      ;; shallow indent because we're in the body
-      edge)))
+(defun shen-let-indent-var? ()
+  (save-excursion
+    (condition-case nil
+        (progn (forward-sexp)
+               (forward-sexp)
+               t)
+      (error nil))))
+
+(defun shen-let-indent (state indent-point normal-indent)
+  (goto-char indent-point)
+  (skip-chars-forward " \t")
+  (if (shen-let-indent-var?)
+      (lisp-indent-specform 5 state indent-point normal-indent)
+    (- normal-indent 2)))
 
 (defun shen-package-indent (state indent-point normal-indent)
   (- (current-column) 7))
@@ -480,6 +486,8 @@
   (- (current-column) 6))
 
 (put 'let 'shen-indent-function 'shen-let-indent)
+(put 'let/cont 'shen-indent-function 'shen-let-indent)
+(put 'let/monad 'shen-indent-function 'shen-let-indent)
 (put 'lambda 'shen-indent-function 1)
 (put 'package 'shen-indent-function 'shen-package-indent)
 (put 'module  'shen-indent-function 'shen-module-indent)
