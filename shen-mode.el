@@ -421,6 +421,38 @@
       (+ 2 root))))
 
 
+(defun is-prolog-clause-head (X)
+  (if X
+      (save-excursion
+        (goto-char X)
+        (move-beginning-of-line 1)
+        (cond
+         ((looking-at ".*\\(<--\\)")    (match-beginning 1))
+         (t nil)))
+    nil))
+
+
+(defun last-prolog-indent-level (begin end)
+  (if end
+      (save-excursion
+        (goto-char end)
+        (re-search-backward "<--" begin)
+        (+ 4 (current-column)))
+    nil))
+
+
+(defun indent-prolog (indent-point state normal-indent)
+  (let ((root (save-excursion
+                (backward-up-list)
+                (current-column))))
+    (if (is-prolog-clause-head indent-point)
+        (+ 2 root)
+      (let ((indent (last-prolog-indent-level (elt state 1) indent-point)))
+        (if indent
+            indent
+          (+ 4 root))))))
+
+
 (defun last-sexp-of-line ()
     (progn
       (beginning-of-line)
@@ -437,6 +469,10 @@
     (parse-partial-sexp (point) calculate-lisp-indent-last-sexp 0 t)
 
     (cond
+     ((and (looking-at "defprolog"))
+
+      (indent-prolog indent-point state normal-indent))
+
      ((looking-at "def")
       (indent-function-def indent-point state normal-indent))
 
