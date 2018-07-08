@@ -30,20 +30,28 @@
 (require 'comint)
 (require 'shen-mode)
 
-;;;###autoload
-(defvar inferior-shen-folder (file-name-directory
-                              (or load-file-name buffer-file-name)))
-
 (defun inferior-shen-buffer-folder ()
   (let ((FILE (buffer-file-name (car (buffer-list)))))
     (if FILE (file-name-directory FILE) "")))
 
-(defun inferior-shen-support-code ()
+
+(defvar shen-support-folder
+  (file-name-directory load-file-name))
+
+(defvar shen-startup-folder "/")
+
+;;;###autoload
+(defvar inferior-shen-program "shen"
+  "*Program name for invoking an inferior Shen with for Inferior Shen mode.")
+
+
+
+(defun inferior-shen-support-code (shen-buffer-folder)
   (format "(set emacs-shen.*buffer-folder* \"%s\")(tc +)\n(load \"%s%s\")\n(tc -)\n(load \"%s%s\")\n"
-          (inferior-shen-buffer-folder)
-          inferior-shen-folder
+          shen-buffer-folder
+          shen-support-folder
           "support.shen"
-          inferior-shen-folder
+          shen-support-folder
           "init.shen"))
 
 
@@ -125,9 +133,6 @@ mode.  Default is whitespace followed by 0 or 1 single-letter colon-keyword
     'shen-show-variable-documentation))
 
 
-;;;###autoload
-(defvar inferior-shen-program "shen"
-  "*Program name for invoking an inferior Shen with for Inferior Shen mode.")
 
 ;;;###autoload
 (defvar inferior-shen-load-command "(load \"%s\")\n"
@@ -270,20 +275,32 @@ With argument, allows you to edit the command line (default is value
 of `inferior-shen-program').  Runs the hooks from
 `inferior-shen-mode-hook' (after the `comint-mode-hook' is run).
 \(Type \\[describe-mode] in the process buffer for a list of commands.)"
-  (interactive (list (if current-prefix-arg
-			 (read-string "Run shen: " inferior-shen-program)
-		       inferior-shen-program)))
-  (file-name-directory
-   (or load-file-name buffer-file-name))
+  (interactive (list (read-string "Run shen: " inferior-shen-program)))
 
   (if (not (comint-check-proc "*inferior-shen*"))
-      (let ((cmdlist (split-string cmd)))
-	(set-buffer (apply (function make-comint)
-			   "inferior-shen" (car cmdlist) nil (cdr cmdlist)))
-	(inferior-shen-mode)))
+      (let* ((cmdlist     (split-string cmd))
+             (exe         (car cmdlist))
+             (args        (cdr cmdlist))
+             (root        (file-name-directory (executable-find exe)))
+             (old-default default-directory))
+
+        (setq shen-startup-folder root)
+        (setq default-directory root)
+        (set-buffer (apply (function make-comint)
+                           "inferior-shen" exe nil args))
+
+        (inferior-shen-mode)
+        (setq default-directory old-default)))
+
   (setq inferior-shen-buffer "*inferior-shen*")
-  (comint-send-string inferior-shen-buffer (inferior-shen-support-code))
-  (pop-to-buffer "*inferior-shen*" 'display-buffer-in-previous-window))
+
+  (comint-send-string inferior-shen-buffer
+                      (inferior-shen-support-code
+                       (inferior-shen-buffer-folder)))
+
+  (pop-to-buffer "*inferior-shen*" 'display-buffer-below-selected))
+
+
 ;;;###autoload (add-hook 'same-window-buffer-names "*inferior-shen*")
 
 ;;;###autoload
