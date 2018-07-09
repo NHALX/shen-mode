@@ -277,20 +277,23 @@ of `inferior-shen-program').  Runs the hooks from
 \(Type \\[describe-mode] in the process buffer for a list of commands.)"
   (interactive (list (read-string "Run shen: " inferior-shen-program)))
 
-  (if (not (comint-check-proc "*inferior-shen*"))
-      (let* ((cmdlist     (split-string cmd))
-             (exe         (car cmdlist))
-             (args        (cdr cmdlist))
-             (root        (file-name-directory (executable-find exe)))
-             (old-default default-directory))
+  (let* ((cmdlist     (split-string cmd))
+         (exe         (car cmdlist))
+         (args        (cdr cmdlist)))
 
-        (setq shen-startup-folder root)
-        (setq default-directory root)
-        (set-buffer (apply (function make-comint)
-                           "inferior-shen" exe nil args))
+    (setq inferior-shen-program exe)
 
-        (inferior-shen-mode)
-        (setq default-directory old-default)))
+    (if (not (comint-check-proc "*inferior-shen*"))
+        (let ((root        (file-name-directory (executable-find exe)))
+              (old-default default-directory))
+
+          (setq shen-startup-folder root)
+          (setq default-directory root)
+          (set-buffer (apply (function make-comint)
+                             "inferior-shen" exe nil args))
+
+          (inferior-shen-mode)
+          (setq default-directory old-default))))
 
   (setq inferior-shen-buffer "*inferior-shen*")
 
