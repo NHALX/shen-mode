@@ -511,14 +511,21 @@
 (defun shen-package-indent (state indent-point normal-indent)
   (- (current-column) 7))
 
+(defun shen-test-indent (state indent-point normal-indent)
+  (- (current-column) 4))
+
 (defun shen-module-indent (state indent-point normal-indent)
   (- (current-column) 6))
 
 (put 'let 'shen-indent-function 'shen-let-indent)
 (put 'let/cont 'shen-indent-function 'shen-let-indent)
 (put 'let/monad 'shen-indent-function 'shen-let-indent)
+(put 'let/fuzz 'shen-indent-function 'shen-let-indent)
+(put '@@ 'shen-indent-function 'shen-let-indent)
+
 (put 'lambda 'shen-indent-function 1)
 (put 'package 'shen-indent-function 'shen-package-indent)
+(put 'test 'shen-indent-function 'shen-test-indent)
 (put 'module  'shen-indent-function 'shen-module-indent)
 (put 'template 'shen-indent-function 'shen-module-indent)
 (put 'datatype 'shen-indent-function 1)
