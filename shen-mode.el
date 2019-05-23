@@ -585,5 +585,108 @@
 
 (add-to-list 'auto-mode-alist '("\\.shen\\'" . shen-mode))
 
+;; SUGAR
+
+
+
+(defun is-inside-string ()
+  (nth 3 (syntax-ppss)))
+
+(defun shen-iterate-mode-declarations (F)
+  (save-excursion
+    (goto-char (point-min))
+
+    (while (let ((case-fold-search nil))
+             (re-search-forward "\(mode " nil t nil))
+
+      (if (not (is-inside-string))
+          (ignore-errors
+            (let* ((LL   (- (point) 6))
+                  (RR   (scan-lists (point) 1 1))
+                  (LR   (progn (forward-comment RR) (point)))
+                  (RL   (scan-sexps LR 1))
+                  (Mode (char-before (scan-sexps RL 1))))
+
+              (funcall F LL LR RL RR Mode)))))))
+
+
+(defun shen-text-property:mode (LL LR RL RR Mode)
+  (progn
+    ;; (message "At %d %d - %d %d (%c) '%s'" LL LR RL RR Mode
+    ;;  (buffer-substring-no-properties LR RL))
+
+    (cond
+     ((= Mode ?+)
+      (put-text-property (- LR 1) RL 'font-lock-face '(:foreground "yellow")))
+
+     ((= Mode ?-)
+      (put-text-property (- LR 1) RL 'font-lock-face '(:foreground "green")))
+
+     (t (put-text-property (- LR 1) RL 'font-lock-face '(:foreground "red"))))
+
+
+
+    (put-text-property LL (+ LR 1) 'rear-nonsticky '(read-only))
+    (put-text-property (- RR 1) RR 'rear-nonsticky '(read-only))
+
+
+    (put-text-property LL LR 'display '((margin nil) ""))
+    (put-text-property RL RR 'display '((margin nil) ""))
+
+    ;; (let ((inhibit-modification-hooks t)
+    ;;       (M (list (set-marker (make-marker) LL)
+    ;;                (- LR LL)
+    ;;                (set-marker (make-marker) RR)
+    ;;                (- RR RL))))
+
+    ;;   (put-text-property LL LR 'dual M)
+    ;;   (put-text-property RL RR 'dual M)
+    ;;   (put-text-property LL LR 'modification-hooks '(shen-text-property:mode-dissolve))
+    ;;   (put-text-property RL RR 'modification-hooks '(shen-text-property:mode-dissolve)))
+
+    (put-text-property LL LR 'read-only t)
+    (put-text-property RL RR 'read-only t)
+))
+
+
+(defun shen-sugar ()
+  (progn
+    (setq buffer-invisibility-spec '(shen-invisible-mode-prefix
+                                     shen-invisible-mode-suffix))
+
+    (shen-iterate-mode-declarations 'shen-text-property:mode)))
+
+
+(defun shen-desugar ()
+  (progn
+    ;; (setq buffer-invisibility-spec ())
+    (let ((inhibit-read-only t)
+          (inhibit-modification-hooks t))
+
+      (put-text-property (point-min) (point-max) 'read-only nil)
+  ;;  (put-text-property (point-min) (point-max) 'modification-hooks nil)
+      )
+  ;;  (put-text-property (point-min) (point-max) 'dual nil)
+  ;;  (put-text-property (point-min) (point-max) 'rear-nonsticky nil)
+    (put-text-property (point-min) (point-max) 'front-sticky nil)
+    (put-text-property (point-min) (point-max) 'display nil)
+  ;;  (put-text-property (point-min) (point-max) 'invisible nil)
+  ;;  (put-text-property (point-min) (point-max) 'cursor-intangible nil)
+    (put-text-property (point-min) (point-max) 'font-lock-face nil)))
+
+
+(setq shen-sugared nil)
+
+(defun shen-toggle-sugar ()
+  (interactive
+   (if shen-sugared
+       (progn (setq shen-sugared nil)
+              (shen-desugar))
+     (progn (setq shen-sugared t)
+            (shen-sugar)))))
+
+(define-key shen-mode-map (kbd "<f9>")  #'shen-toggle-sugar)
+
+
 (provide 'shen-mode)
 ;;; shen-mode.el ends here
